@@ -5,9 +5,10 @@ from concurrent.futures import TimeoutError
 import socket
 
 class ProtocolCheck:
-    def __init__(self, targets):
-        self.targets: list = targets
-        self.inventory: dict = {}
+    def __init__(self, targets=None):
+        self.targets = targets if targets is not None else []
+        self.inventory = {}
+
 
     def run(self):
         for t in self.targets:
@@ -19,9 +20,9 @@ class ProtocolCheck:
             else:
                 b = self.gnmi_available(t, 57400)  # targetも渡す
             if b:
-                self.inventory["available"] = t
+                self.inventory.setdefault("available", []).append(t)
             else:
-                self.inventory["unavailable"] = t
+                self.inventory.setdefault("unavailable", []).append(t)
 
     def gnmi_available(self, target, port):
         """
