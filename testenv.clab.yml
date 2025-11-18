@@ -1,0 +1,39 @@
+name: arista-labs
+mgmt:
+  network: mgmt
+  ipv4-subnet: 192.168.100.0/24
+
+topology:
+  kinds:
+    ceos:
+      image: ceos:4.27.12M
+  nodes:
+    eos-01:
+      kind: ceos
+      mgmt-ipv4: 192.168.100.11
+    eos-02:
+      kind: ceos
+      mgmt-ipv4: 192.168.100.12
+    eos-03:
+      kind: ceos
+      mgmt-ipv4: 192.168.100.13
+    eos-04:
+      kind: ceos
+      mgmt-ipv4: 192.168.100.14
+    eos-05:
+      kind: ceos
+      mgmt-ipv4: 192.168.100.15
+    eos-06:
+      kind: ceos
+      mgmt-ipv4: 192.168.100.16
+  links:
+    - endpoints: ["eos-01:eth1", "eos-02:eth1"]
+    - endpoints: ["eos-01:eth2", "eos-04:eth2"]
+    - endpoints: ["eos-01:eth3", "eos-03:eth3"]
+    - endpoints: ["eos-01:eth4", "eos-05:eth4"]
+    - endpoints: ["eos-02:eth2", "eos-03:eth2"]
+    - endpoints: ["eos-02:eth3", "eos-04:eth3"]
+    - endpoints: ["eos-02:eth4", "eos-06:eth4"]
+    - endpoints: ["eos-03:eth1", "eos-04:eth1"]
+    - endpoints: ["eos-03:eth5", "eos-05:eth5"]
+    - endpoints: ["eos-04:eth5", "eos-06:eth5"]

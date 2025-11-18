@@ -1,5 +1,6 @@
 main/__pycache__
 test/__pycache__
 test/.pytest_cache
-venv
 clab-net-stack
+proxy/__pycache__
+venv
