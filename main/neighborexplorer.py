@@ -26,7 +26,7 @@ class NeighborExplorer:
             ) as gc:
 
                 result = gc.get(
-                    path=["/system/lldp/interface/neighbor[id=*]"],
+                    path=["/lldp/interfaces/interface/neighbors/"],
                     encoding="json_ietf"
                 )
 
@@ -58,7 +58,7 @@ class NeighborExplorer:
             ) as gc:
 
                 result = gc.get(
-                    path=["/platform/chassis/hw-mac-address"],
+                    path=["/lldp/state/chassis-id"],
                     encoding="json_ietf"
                 )
 
@@ -86,8 +86,8 @@ class NeighborExplorer:
         mess = lldp_result["notification"][0]["update"][0]["val"]["interface"]#[0]#["neighbor"][0]["chassis-id"]
         #neighbors = list(map(lambda x: x["neighbor"], mess))#[0]["chassis-id"], mess))
         for m in mess:
-            for n in m["neighbor"]:
-                neighbors.append(n["chassis-id"])
+            for n in m["neighbors"]["neighbor"]:
+                neighbors.append(n["id"])
         return neighbors
 
     def parse_myself(self, lldp_result):
