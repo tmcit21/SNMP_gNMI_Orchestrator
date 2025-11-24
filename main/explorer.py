@@ -3,12 +3,12 @@ import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class Explorer:
-    def __init__(self, timeout=0.2, workers=100):
+    def __init__(self, timeout=0.1, workers=100):
         self.timeout = timeout
         self.workers = workers
 
     def host_alive(self, ip):
-        ports = [22, 57400, 161]
+        ports = [161, 57400, 22]  # SNMP → gNMI → SSH
         for p in ports:
             try:
                 socket.create_connection((ip, p), timeout=self.timeout)
@@ -23,7 +23,6 @@ class Explorer:
 
         results = []
 
-        # --- 並列実行 ---
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
             futures = {executor.submit(self.host_alive, ip): ip for ip in ips}
 
