@@ -1,5 +1,4 @@
 from pygnmi.client import gNMIclient
-import socket
 class GNMI():
     def __init__(self, ip_address, port, name, password, insecure, skip_verify):
         self.target: str = (ip_address, port)

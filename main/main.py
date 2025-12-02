@@ -63,7 +63,7 @@ class Controller():
     def ssh_save_conf(self, addr: str, ssh_name: str, ssh_password: str) -> bool: #gNMI有効化前に設定保存
         pass
 
-    def gnmi_save_conf(self, addr: str, ssh_name: str, ssh_password: str) -> bool: # /system/grpc-server/(うろ覚え)以下保存
+    def gnmi_save_conf(self, addr: str, gnmi_name: str, gnmi_password: str) -> bool: # /system/grpc-server/(うろ覚え)以下保存
         pass
 
     def command_check(self, addr: str, commands: list) -> bool: #gNMI有効化コマンド流し込み

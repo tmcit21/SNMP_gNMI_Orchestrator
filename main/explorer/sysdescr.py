@@ -42,14 +42,14 @@ class Sysdescr():
             # --- Containerlab ---
             (r"SRLinux", "Nokia", "srlinux"),
             (r"VyOS", "VyOS", "vyos"),
-            (r"CEOSLab", "Arista", "ceos"),
-            (r"XRv", "Cisco", "ios_xrv"),
+            (r"CEOSLab", "Arista", "eos"),
+            (r"XRv", "Cisco", "iosxr"),
             (r"SONiC", "Community", "sonic"),
 
             # --- other ---
-            (r"Cisco IOS XR", "Cisco", "ios_xr"),
+            (r"Cisco IOS XR", "Cisco", "iosxr"),
             (r"Cisco IOS Software", "Cisco", "ios"),
-            (r"Cisco NX-OS", "Cisco", "nx_os"),
+            (r"Cisco NX-OS", "Cisco", "nxos"),
             (r"Arista Networks EOS", "Arista", "eos"),
             (r"JUNOS", "Juniper", "junos"),
             (r"FortiGate", "Fortinet", "fortios"),
