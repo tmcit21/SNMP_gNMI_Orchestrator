@@ -103,3 +103,21 @@ if __name__ == "__main__":
     devices.run()
     import pprint
     pprint.pprint(devices.inventory)
+    """
+    {'available': [{'community': 'public',
+                'ip_address': '172.31.254.3',
+                'password': 'NokiaSrl1!',
+                'username': 'admin'},
+               {'community': 'public',
+                'ip_address': '172.31.254.2',
+                'password': 'NokiaSrl1!',
+                'username': 'admin'}],
+ 'unavailable': [{'community': 'public',
+                  'ip_address': '172.31.254.1',
+                  'password': 'admin',
+                  'username': 'admin'}],
+ 'unknown': [{'community': 'public',
+              'ip_address': '172.31.254.254',
+              'password': 'clab@123',
+              'username': 'clab'}]}
+    """

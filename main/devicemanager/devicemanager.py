@@ -60,3 +60,7 @@ if __name__ == "__main__":
 
     print(result)
     print(dm.summary())
+    """
+    {'snmp_only': [{'ip_address': '172.31.254.1', 'community': 'public', 'username': 'admin', 'password': 'NokiaSrl1!'}, {'ip_address': '172.31.254.1', 'username': 'admin', 'password': 'admin', 'community': 'public'}], 'gnmi_supported': [{'ip_address': '172.31.254.2', 'community': 'public', 'username': 'admin', 'password': 'NokiaSrl1!'}], 'unknown': [{'ip_address': '172.31.254.254', 'username': 'clab', 'password': 'clab@123', 'community': 'public'}]}
+    {'total': 4, 'snmp_only': 2, 'gnmi_supported': 1, 'unknown': 1}
+    """

@@ -1,0 +1,83 @@
+# -----------------------------------------------------
+# [collector]  gNMI Client
+# -----------------------------------------------------
+[collector]
+host = "192.168.100.100"
+port = 9092
+username = ""
+password = ""
+tls = false
+
+#いらない
+protocol = "kafka"
+stream = "srl_telemetry"
+
+# -----------------------------------------------------
+# [global]  コマンドで上書き可
+# -----------------------------------------------------
+
+[global]
+network = "172.31.254.0/24"
+explore_interval = 60        # デバイス探索間隔（秒）
+exclude = ["172.31.254.254"]  # 除外IP（任意）
+
+# -----------------------------------------------------
+# [default]  デフォルトの認証情報（個別指定がなければこれ使う）
+# -----------------------------------------------------
+[default]
+
+# SNMP 認証（v2c）
+snmp_community = "public"
+
+# gNMI 認証情報
+gnmi_username = "admin"
+gnmi_password = "NokiaSrl1!"
+gnmi_port_secure = 57400      # TLSあり
+gnmi_port_insecure = 57401    # なし
+gnmi_insecure = true
+
+# SSH（SNMP-only 機器の設定変更に使用）
+ssh_username = "admin"
+ssh_password = "NokiaSrl1!"
+
+# -----------------------------------------------------
+# [devices] 個別の機器設定（defaultと違う設定がある機器だけ記述）
+# -----------------------------------------------------
+[devices]
+
+# ---- IP アドレスを key とした個別設定 ----
+
+[devices."172.31.254.5"]
+snmp_community = "public"
+ssh_username = "vyos"
+ssh_password = "vyos"
+
+[devices."172.31.254.20"]
+snmp_community = "ap-monitor"
+gnmi_insecure = false         # この機器だけ TLS必須
+
+# -----------------------------------------------------
+# [operation] gNMIを有効にするのに必要な操作
+# -----------------------------------------------------
+[nos]
+ope.vyos = []
+ope.srlinux  = [
+    "enter candidate",
+    "set /system grpc-server insecure-mgmt admin-state enable",
+    "set /system grpc-server insecure-mgmt rate-limit 65000",
+    "set /system grpc-server insecure-mgmt yang-models openconfig",
+    "set /system grpc-server insecure-mgmt network-instance mgmt",
+    "set /system grpc-server insecure-mgmt port 57401",
+    "set /system grpc-server insecure-mgmt ",
+    "set /system grpc-server insecure-mgmt admin-state enable",
+    "set /system grpc-server insecure-mgmt admin-state enable",
+    "set /system grpc-server insecure-mgmt admin-state enable",
+    "set /system grpc-server insecure-mgmt admin-state enable",
+    ]
+ope.sonic  = []
+ope.routeros  = []
+ope.cumulus  = []
+ope.ios  = []
+ope.junos  = []
+ope.eos  = []
+ope.linux  = []

@@ -34,7 +34,7 @@ class Explorer:
                         results.append({
                             "ip_address": ip,
                             "username": "admin",
-                            "password": "admin",
+                            "password": "NokiaSrl1!",
                             "community": "public"
                         })
                 except:
@@ -47,3 +47,6 @@ if __name__ == "__main__":
     exp = Explorer(workers=100)  # 100並列
     devices = exp.explore_subnet("172.31.254.0/24")
     print(devices)
+    """
+    [{'ip_address': '172.31.254.1', 'username': 'admin', 'password': 'NokiaSrl1!', 'community': 'public'}, {'ip_address': '172.31.254.5', 'username': 'admin', 'password': 'NokiaSrl1!', 'community': 'public'}, {'ip_address': '172.31.254.2', 'username': 'admin', 'password': 'NokiaSrl1!', 'community': 'public'}, {'ip_address': '172.31.254.4', 'username': 'admin', 'password': 'NokiaSrl1!', 'community': 'public'}, {'ip_address': '172.31.254.3', 'username': 'admin', 'password': 'NokiaSrl1!', 'community': 'public'}, {'ip_address': '172.31.254.254', 'username': 'admin', 'password': 'NokiaSrl1!', 'community': 'public'}]
+    """

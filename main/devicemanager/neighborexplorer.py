@@ -129,3 +129,6 @@ if __name__ == "__main__":
     nx = NeighborExplorer()
     topo = nx.neighbor_devices(gnmi_nodes)
     print(topo)
+    """
+    {'E6:F6:7F:15:D6:FB'}
+    """

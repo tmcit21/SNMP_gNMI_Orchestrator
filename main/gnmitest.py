@@ -10,8 +10,9 @@ with gNMIclient(
 ) as gc:
 
     result = gc.get(
-        path=["/lldp/interfaces/interface/neighbors/"],
+        path=["/lldp/state/chassis-id"],
         encoding="json_ietf"
     )
 
+    result = result#["notification"][0]["update"][0]["val"]["interface"]
     print(result)
