@@ -53,15 +53,31 @@ ssh_username = "vyos"
 ssh_password = "vyos"
 
 [devices."172.31.254.20"]
-snmp_community = "ap-monitor"
+snmp_community = "public"
 gnmi_insecure = false         # この機器だけ TLS必須
 
 # -----------------------------------------------------
 # [operation] gNMIを有効にするのに必要な操作
 # -----------------------------------------------------
 [nos]
-ope.vyos = []
-ope.srlinux  = [
+operation.allied_telesis_awplus = []
+operation.arista_eos = []
+operation.cisco_asa = []
+operation.cisco_ios = []
+operation.cisco_nxos = []
+operation.cisco_wlc = []
+operation.cisco_xe = []
+operation.cisco_xr = []
+operation.dell_powerconnect = []
+operation.f5_tmsh = []
+operation.fortinet = []
+operation.hp_comware = []
+operation.hp_procurve = []
+operation.juniper_junos = []
+operation.mikrotik_routeros = []
+operation.nokia_sros = []
+operation.paloalto_panos = []
+operation.nokia_srl = [
     "enter candidate",
     "set /system grpc-server insecure-mgmt admin-state enable",
     "set /system grpc-server insecure-mgmt rate-limit 65000",
@@ -74,10 +90,4 @@ ope.srlinux  = [
     "set /system grpc-server insecure-mgmt admin-state enable",
     "set /system grpc-server insecure-mgmt admin-state enable",
     ]
-ope.sonic  = []
-ope.routeros  = []
-ope.cumulus  = []
-ope.ios  = []
-ope.junos  = []
-ope.eos  = []
-ope.linux  = []
+operation.vyos = []

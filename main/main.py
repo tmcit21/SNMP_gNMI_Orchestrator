@@ -1,5 +1,6 @@
 import tomllib
-from explorer import gnmi, sysdescr
+from explorer import sysdescr
+from confmanager import enable
 from typing import Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import asyncio
@@ -11,8 +12,9 @@ class Controller():
         self.paramater: dict = parameter
         self.workers: int = workers
         self.table: dict = {}
-        # {'IPaddr': {'snmp_community': str, 'ssh_username': str, 'ssh_password': str, 'gnmi_port_secure': int, 'gnmi_port_insecure': int, 'gnmi_insecure': bool, 'gnmi_username': str, 'gnmi_password': str, 'chassis_MAC': str | None, 'vendor': str, 'nos': str, 'raw': str}
+        # {'IPaddr': {'snmp_community': str, 'ssh_username': str, 'ssh_password': str, 'gnmi_port_secure': int, 'gnmi_port_insecure': int, 'gnmi_insecure': bool, 'gnmi_username': str, 'gnmi_password': str, 'chassis_MAC': str | None, 'nos': str}
         #self.capability_table: dict = {}
+        self.nos_table: dict = {}
 
     def read(self) -> None: # 設定読込
         subnet = ipaddress.ip_network(self.paramater["global"]["network"], strict=False)
@@ -32,13 +34,13 @@ class Controller():
                 for c, v in config.items():
                     self.table[ip][c] = v
 
-    def _check_single_host(self, ip: str, config: dict) -> tuple[str, dict | None]:
+    def _check_single_host(self, ip: str, config: dict) -> tuple[str, dict | None]: #SysDescr取得
             s = sysdescr.Sysdescr(ip, config["snmp_community"])
             raw_val = s.get()
             parsed = s.parse_sysdescr(raw_val)
             return ip, parsed
 
-    def addr_prune(self) -> None:
+    def addr_prune(self) -> None: # SNMP応答ないアドレスをself.tableから削除
         valid_hosts = {}
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
             future_to_ip = {
@@ -49,7 +51,7 @@ class Controller():
                 ip, result = future.result()
 
                 if result:
-                    print(f"[FOUND] {ip}: {result}")
+                    #print(f"[FOUND] {ip}: {result}")
                     current_config = self.table[ip]
                     nos = {"nos": result}
                     current_config.update(nos)
@@ -57,19 +59,6 @@ class Controller():
                 else:
                     pass
         self.table = valid_hosts
-
-
-    def ssh_save_conf(self, addr: str, ssh_name: str, ssh_password: str) -> bool: #gNMI有効化前に設定保存
-        pass
-
-    def gnmi_save_conf(self, addr: str, gnmi_name: str, gnmi_password: str) -> bool: # /system/grpc-server/(うろ覚え)以下保存
-        pass
-
-    def command_check(self, addr: str, commands: list) -> bool: #gNMI有効化コマンド流し込み
-        pass
-
-    def capability_check(self, addr: str, gnmi_name: str, gnmi_password: str, port: int, insecure: bool, skip_verify: bool) -> bool: #gNMI capabilities取得
-        return gnmi.GNMI(ip_address=addr, port=port, name=gnmi_name, password=gnmi_password, insecure=insecure, skip_verify=skip_verify).available()
 
     def set_gnmi_client(self, ): # gNMI Clientの設定
         pass
@@ -86,10 +75,30 @@ class Controller():
     def waiting(self): #
         pass
 
+    def _set_gnmi(self, ip: str, config: dict, commands: list):
+        pass
+
+    def enconf(self) -> None: # gNMI設定
+        with ThreadPoolExecutor(max_workers=self.workers) as executor:
+            stats = {
+                executor.submit(self._set_gnmi, ip, config): ip
+                for ip, config in self.table.items()
+            }
+            for done in as_completed(stats):
+                print(done)
+
+    def match_conf(self) -> None: #NOSとそれに投入するgNMIのconfをdictで結びつけ
+        for v in self.table.values():
+            self.nos_table[v["nos"]] = None
+        for k, v in self.paramater["nos"]["operation"].items():
+            if k in self.nos_table:
+                self.nos_table[k] = v
+
     def run(self) -> None:
         self.read()
         self.addr_prune()
-        print(self.table)
+        self.match_conf()
+        #self._set_gnmi("172.31.254.2", )
 
 
 if __name__ == '__main__':
