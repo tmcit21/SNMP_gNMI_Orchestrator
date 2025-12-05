@@ -36,9 +36,7 @@ class Controller():
             s = sysdescr.Sysdescr(ip, config["snmp_community"])
             raw_val = s.get()
             parsed = s.parse_sysdescr(raw_val)
-            if parsed and parsed['nos'] != 'Unknown':
-                return ip, parsed
-            return ip, None
+            return ip, parsed
 
     def addr_prune(self) -> None:
         valid_hosts = {}
@@ -51,9 +49,10 @@ class Controller():
                 ip, result = future.result()
 
                 if result:
-                    #print(f"[FOUND] {ip}: {result['nos']}")
+                    print(f"[FOUND] {ip}: {result}")
                     current_config = self.table[ip]
-                    current_config.update(result)
+                    nos = {"nos": result}
+                    current_config.update(nos)
                     valid_hosts[ip] = current_config
                 else:
                     pass
