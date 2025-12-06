@@ -71,7 +71,6 @@ class Controller():
     def set_collect_path(self, ): # SNMP GET -> gNMI GETしたいパスを設定
         pass
 
-
     def waiting(self): #
         pass
 
