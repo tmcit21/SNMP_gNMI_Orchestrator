@@ -1,11 +1,14 @@
 import tomllib
 from explorer import sysdescr
 from confmanager import enable
+from save import store
 from typing import Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import asyncio
 import ipaddress
-import time
+
+GNMI_FAILED_MESSAGE = "gNMI Configuration FAILED"
+DEBUG = True
 
 class Controller():
     def __init__(self, parameter, workers=50):
@@ -51,7 +54,6 @@ class Controller():
                 ip, result = future.result()
 
                 if result:
-                    #print(f"[FOUND] {ip}: {result}")
                     current_config = self.table[ip]
                     nos = {"nos": result}
                     current_config.update(nos)
@@ -69,14 +71,21 @@ class Controller():
     def set_collect_path(self, ): # SNMP GET -> gNMI GETしたいパスを設定
         pass
 
-    def save_log(self):
-        pass
 
     def waiting(self): #
         pass
 
-    def _set_gnmi(self, ip: str, config: dict, commands: list):
-        pass
+    def _set_gnmi(self, ip: str, config: dict) -> tuple[str, str | None]:
+        c = enable.Conn(ip_address=ip, gnmi_username=config["gnmi_username"], ssh_username=config["ssh_username"], gnmi_password=config["gnmi_password"], ssh_password=config["ssh_password"],
+                        gnmi_port_secure=config["gnmi_port_secure"], gnmi_port_insecure=config["gnmi_port_insecure"], gnmi_insecure=config["gnmi_insecure"], nos=config["nos"])
+        if c.available():
+            pass
+        else:
+            result = c.set_gnmi(self.nos_table[config["nos"]])
+            if not result:
+                return ip, None
+        conf = c.get_gnmi_conf()
+        return ip, conf
 
     def enconf(self) -> None: # gNMI設定
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
@@ -85,7 +94,12 @@ class Controller():
                 for ip, config in self.table.items()
             }
             for done in as_completed(stats):
-                print(done)
+                ip, result = done.result()
+                s = store.Store(debug=DEBUG)
+                if result:
+                    s.save_log(ip, result)
+                else:
+                    s.save_log(ip, GNMI_FAILED_MESSAGE)
 
     def match_conf(self) -> None: #NOSとそれに投入するgNMIのconfをdictで結びつけ
         for v in self.table.values():
@@ -98,7 +112,7 @@ class Controller():
         self.read()
         self.addr_prune()
         self.match_conf()
-        #self._set_gnmi("172.31.254.2", )
+        self.enconf()
 
 
 if __name__ == '__main__':

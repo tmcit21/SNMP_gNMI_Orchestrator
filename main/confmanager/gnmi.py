@@ -1,11 +1,10 @@
 from pygnmi.client import gNMIclient
 class GNMI():
-    def __init__(self, ip_address, port, name, password, insecure, skip_verify):
+    def __init__(self, ip_address, port, name, password, insecure):
         self.target: str = (ip_address, port)
         self.name: str = name
         self.password: str = password
         self.insecure: bool = insecure
-        self.skip_verify: bool = skip_verify
 
     def available(self) -> bool:
         try:
@@ -14,7 +13,6 @@ class GNMI():
                 username=self.name,
                 password=self.password,
                 insecure=self.insecure,
-                skip_verify=self.skip_verify,
                 gnmi_timeout=3,
             ) as gc:
                 gc.capabilities()
@@ -29,7 +27,6 @@ class GNMI():
                 username=self.name,
                 password=self.password,
                 insecure=self.insecure,
-                skip_verify=self.skip_verify,
                 gnmi_timeout=3,
             ) as gc:
                 result = gc.get("/system/grpc-servers")

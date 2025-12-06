@@ -1,6 +1,7 @@
 import os
 import sys
 from netmiko import BaseConnection
+from pygnmi.client import gNMIclient
 # mainディレクトリをパスに追加
 current_dir = os.path.dirname(os.path.abspath(__file__))
 main_dir = os.path.dirname(current_dir)
@@ -26,13 +27,48 @@ class Conn:
         self.nos = nos
 
     def set_gnmi(self, commands: list):
-        c = BaseConnection(device_type=self.nos, ip=self.ip_address, username=self.ssh_username, password=self.ssh_password, port=22)
         try:
+            c = BaseConnection(device_type=self.nos, ip=self.ip_address, username=self.ssh_username, password=self.ssh_password, port=22)
             for command in commands:
                 c.send_command(command)
             return True
         except:
             return False
+
+
+    def available(self) -> bool:
+        try:
+            with gNMIclient(
+                target=(self.ip_address, self._port()),
+                username=self.gnmi_username,
+                password=self.gnmi_password,
+                insecure=self.gnmi_insecure,
+                gnmi_timeout=3,
+            ) as gc:
+                gc.capabilities()
+                return True
+        except Exception:
+            return False
+
+    def get_gnmi_conf(self):
+        try:
+            with gNMIclient(
+                target=(self.ip_address, self._port()),
+                username=self.gnmi_username,
+                password=self.gnmi_password,
+                insecure=self.gnmi_insecure,
+                gnmi_timeout=3,
+            ) as gc:
+                result = gc.get("/system/grpc-servers")
+                return result
+        except Exception:
+            return False
+
+    def _port(self):
+        if self.gnmi_insecure:
+            return str(self.gnmi_port_insecure)
+        else:
+            return str(self.gnmi_port_secure)
 
 if __name__ == "__main__":
     print(SH_CONF)
