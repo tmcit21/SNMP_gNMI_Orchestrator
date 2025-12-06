@@ -1,0 +1,42 @@
+# mapping.yaml
+
+# インターフェース名とSNMP Indexの対応表
+# (本来は起動時にSNMP Walkで自動生成すべきですが、今回は設定ファイルで定義します)
+interface_map:
+  eth0: 2
+  lo: 1
+
+# パスとOIDのマッピング定義
+paths:
+  "/interfaces":
+    oid: ""
+    type: ""
+
+  # --- System系 (インデックス不要) ---
+  "/system/state/description":
+    oid: "1.3.6.1.2.1.1.1.0"   # sysDescr
+    type: "string"
+
+  "/system/state/name":
+    oid: "1.3.6.1.2.1.1.5.0"   # sysName
+    type: "string"
+
+  "/system/state/boot-time":
+    oid: "1.3.6.1.2.1.1.3.0"   # sysUpTime
+    type: "int"
+
+  # --- Interface系 (インデックス解決が必要) ---
+  "/interfaces/interface/state/counters/in-octets":
+    oid_base: "1.3.6.1.2.1.2.2.1.10" # ifInOctets
+    type: "int"
+    requires_index: true             # eth0 -> 2 の変換を行うフラグ
+
+  "/interfaces/interface/state/counters/out-octets":
+    oid_base: "1.3.6.1.2.1.2.2.1.16" # ifOutOctets
+    type: "int"
+    requires_index: true
+
+  "/interfaces/interface/state/type":
+    oid_base: "1.3.6.1.2.1.2.2.1.3"  # ifType
+    type: "int"
+    requires_index: true
