@@ -52,9 +52,9 @@ snmp_community = "public"
 ssh_username = "vyos"
 ssh_password = "vyos"
 
-[devices."172.31.254.20"]
-snmp_community = "public"
-gnmi_insecure = false         # この機器だけ TLS必須
+[devices."172.31.254.6"]
+ssh_username = "vyos"
+ssh_password = "vyos"
 
 # -----------------------------------------------------
 # [operation] gNMIを有効にするのに必要な操作

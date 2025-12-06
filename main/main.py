@@ -6,6 +6,7 @@ from typing import Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import asyncio
 import ipaddress
+import time
 
 GNMI_FAILED_MESSAGE = "gNMI Configuration FAILED"
 DEBUG = True
@@ -62,15 +63,6 @@ class Controller():
                     pass
         self.table = valid_hosts
 
-    def set_gnmi_client(self, ): # gNMI Clientの設定
-        pass
-
-    def get_snmp_request(self, ): # SNMP Managerが収集しているOIDを取得
-        pass
-
-    def set_collect_path(self, ): # SNMP GET -> gNMI GETしたいパスを設定
-        pass
-
     def waiting(self): #
         pass
 
@@ -108,10 +100,14 @@ class Controller():
                 self.nos_table[k] = v
 
     def run(self) -> None:
+        starttime = time.monotonic()
         self.read()
         self.addr_prune()
         self.match_conf()
         self.enconf()
+        endtime = time.monotonic()
+        endtime - starttime
+        print(self.table)
 
 
 if __name__ == '__main__':
