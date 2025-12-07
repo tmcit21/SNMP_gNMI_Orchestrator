@@ -99,12 +99,16 @@ class Controller():
             if k in self.nos_table:
                 self.nos_table[k] = v
 
+    def dist(self):
+        pass
+
     def run(self) -> None:
         starttime = time.monotonic()
         self.read()
         self.addr_prune()
         self.match_conf()
         self.enconf()
+        self.dist()
         endtime = time.monotonic()
         endtime - starttime
         print(self.table)
