@@ -60,13 +60,20 @@ type Server struct {
 
 func (s *Server) Capabilities(ctx context.Context, req *pb.CapabilityRequest) (*pb.CapabilityResponse, error) {
 	return &pb.CapabilityResponse{
-		SupportedModels:    []*pb.ModelData{},
+		SupportedModels: []*pb.ModelData{
+			// OpenConfig関係ないし本来使えないのでそのこと明示
+			{
+				Name:         "gNMI-SNMP-Proxy",
+				Organization: "Generic-Proxy",
+				Version:      "0.0.1",
+			},
+		},
 		SupportedEncodings: []pb.Encoding{pb.Encoding_JSON_IETF},
 		GNMIVersion:        "0.7.0",
 	}, nil
 }
 
-// --- 共通データ収集ロジック ---
+
 func (s *Server) collectUpdates(reqPath *pb.Path) []*pb.Update {
 	var updates []*pb.Update
 	reqPathStr, reqKeys := parsePath(reqPath)

@@ -9,7 +9,7 @@ import ipaddress
 import time
 
 GNMI_FAILED_MESSAGE = "gNMI Configuration FAILED"
-DEBUG = True
+DEBUG = False
 
 class Controller():
     def __init__(self, parameter, workers=50):
@@ -19,6 +19,7 @@ class Controller():
         # {'IPaddr': {'snmp_community': str, 'ssh_username': str, 'ssh_password': str, 'gnmi_port_secure': int, 'gnmi_port_insecure': int, 'gnmi_insecure': bool, 'gnmi_username': str, 'gnmi_password': str, 'chassis_MAC': str | None, 'nos': str}
         #self.capability_table: dict = {}
         self.nos_table: dict = {}
+        self.candidate: set = set()
 
     def read(self) -> None: # 設定読込
         subnet = ipaddress.ip_network(self.paramater["global"]["network"], strict=False)
@@ -69,14 +70,18 @@ class Controller():
     def _set_gnmi(self, ip: str, config: dict) -> tuple[str, str | None]:
         c = enable.Conn(ip_address=ip, gnmi_username=config["gnmi_username"], ssh_username=config["ssh_username"], gnmi_password=config["gnmi_password"], ssh_password=config["ssh_password"],
                         gnmi_port_secure=config["gnmi_port_secure"], gnmi_port_insecure=config["gnmi_port_insecure"], gnmi_insecure=config["gnmi_insecure"], nos=config["nos"])
+        #冗長だけどこうしないとうまくいかない
         if c.available():
-            pass
+            conf = c.get_gnmi_conf()
+            return ip, conf
         else:
-            result = c.set_gnmi(self.nos_table[config["nos"]])
-            if not result:
+            result = c.set_gnmi(self.nos_table[config["nos"]]) #非対応 + 対応してるけどgNMIがdisableな機器
+            if result == False:
                 return ip, None
-        conf = c.get_gnmi_conf()
-        return ip, conf
+            else:
+                conf = c.get_gnmi_conf()
+                conf = str(conf)
+                return ip, conf
 
     def enconf(self) -> None: # gNMI設定
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
@@ -91,6 +96,7 @@ class Controller():
                     s.save_log(ip, result)
                 else:
                     s.save_log(ip, GNMI_FAILED_MESSAGE)
+                    self.candidate.add(ip)
 
     def match_conf(self) -> None: #NOSとそれに投入するgNMIのconfをdictで結びつけ
         for v in self.table.values():
@@ -112,6 +118,8 @@ class Controller():
         endtime = time.monotonic()
         endtime - starttime
         print(self.table)
+        print()
+        print(self.candidate)
 
 
 if __name__ == '__main__':

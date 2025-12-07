@@ -26,7 +26,7 @@ class Conn:
         self.gnmi_insecure = gnmi_insecure
         self.nos = nos
 
-    def set_gnmi(self, commands: list):
+    def set_gnmi(self, commands: list) -> bool:
         try:
             c = BaseConnection(device_type=self.nos, ip=self.ip_address, username=self.ssh_username, password=self.ssh_password, port=22)
             for command in commands:
@@ -50,7 +50,7 @@ class Conn:
         except Exception:
             return False
 
-    def get_gnmi_conf(self):
+    def get_gnmi_conf(self) -> str | bool:
         try:
             with gNMIclient(
                 target=(self.ip_address, self._port()),
@@ -59,7 +59,7 @@ class Conn:
                 insecure=self.gnmi_insecure,
                 gnmi_timeout=3,
             ) as gc:
-                result = gc.get("/system/grpc-servers")
+                result = gc.get(path=["/system/grpc-servers"], encoding="json_ietf")
                 return result
         except Exception:
             return False
@@ -72,18 +72,19 @@ class Conn:
 
 if __name__ == "__main__":
     print(SH_CONF)
-    c = Conn(ip_address="172.31.254.2", gnmi_username="admin", ssh_username="admin", gnmi_password="NokiaSrl1!", ssh_password="NokiaSrl1!",
-        gnmi_port_insecure=57401, gnmi_port_secure=57400, gnmi_insecure=True, nos="nokia_srl")
-    print(c.set_gnmi([
+    #c = Conn(ip_address="172.31.254.4", gnmi_username="admin", ssh_username="admin", gnmi_password="NokiaSrl1!", ssh_password="NokiaSrl1!",
+    #    gnmi_port_insecure=57401, gnmi_port_secure=57400, gnmi_insecure=True, nos="nokia_srl")
+    #print(c.available()) #False
+    #print(c.set_gnmi([
     "enter candidate",
     "set /system grpc-server insecure-mgmt admin-state enable",
     "set /system grpc-server insecure-mgmt rate-limit 65000",
     "set /system grpc-server insecure-mgmt yang-models openconfig",
     "set /system grpc-server insecure-mgmt network-instance mgmt",
     "set /system grpc-server insecure-mgmt port 57401",
-    "set /system grpc-server insecure-mgmt ",
-    "set /system grpc-server insecure-mgmt admin-state enable",
-    "set /system grpc-server insecure-mgmt admin-state enable",
-    "set /system grpc-server insecure-mgmt admin-state enable",
-    "set /system grpc-server insecure-mgmt admin-state enable",
-    ]))
+    "set /system grpc-server insecure-mgmt trace-options [ request response common ]",
+    "set /system grpc-server insecure-mgmt services [ gnmi gnoi gnsi gribi p4rt ]",
+    "set /system grpc-server insecure-mgmt unix-socket admin-state enable",
+    "commit stay",
+    #])) #True
+    #print(c.get_gnmi_conf()) #str
