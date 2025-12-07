@@ -1,16 +1,5 @@
 # mapping.yaml
 
-snmp_target: "127.0.0.1"
-community: "public"
-
-# IF増減のチェック間隔
-refresh_interval_sec: 60
-
-# IF名取得に使うOID
-# ifDescr: .1.3.6.1.2.1.2.2.1.2
-# ifName:  .1.3.6.1.2.1.31.1.1.1.1
-if_name_oid: ".1.3.6.1.2.1.2.2.1.2"
-
 paths:
   "/system":
     oid: "1.3.6.1.2.1.1"
@@ -34,3 +23,12 @@ paths:
   "/system/state/description":
     oid: "1.3.6.1.2.1.1.1.0"
     type: "string"
+
+  "/system/state/uptime":
+    oid: "1.3.6.1.2.1.1.3.0"
+    type: "int"
+
+  "/interfaces/interface/state/counters/out-octets":
+    oid_base: "1.3.6.1.2.1.2.2.1.16"
+    type: "int"
+    requires_index: true

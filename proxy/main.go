@@ -17,13 +17,26 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// --- config  ---
-type Config struct {
-	SnmpTarget         string              `yaml:"snmp_target"`
-	Community          string              `yaml:"community"`
-	RefreshIntervalSec int                 `yaml:"refresh_interval_sec"`
-	IfNameOID          string              `yaml:"if_name_oid"`
-	Paths              map[string]PathConf `yaml:"paths"`
+// --- 設定構造体の定義 ---
+
+// 全体の設定を保持する親構造体
+type AppConfig struct {
+	Server  ServerConfig
+	Mapping MappingConfig
+}
+
+// server_config.yaml 用
+type ServerConfig struct {
+	Port               int    `yaml:"port"`
+	SnmpTarget         string `yaml:"snmp_target"`
+	Community          string `yaml:"community"`
+	RefreshIntervalSec int    `yaml:"refresh_interval_sec"`
+	IfNameOID          string `yaml:"if_name_oid"`
+}
+
+// mapping.yaml 用
+type MappingConfig struct {
+	Paths map[string]PathConf `yaml:"paths"`
 }
 
 type PathConf struct {
@@ -33,14 +46,14 @@ type PathConf struct {
 	RequiresIndex bool   `yaml:"requires_index"`
 }
 
-// --- Global State ---
+// --- グローバル変数 ---
 var (
-	config     Config
+	config     AppConfig
 	ifIndexMap = make(map[string]string)
 	mapMutex   sync.RWMutex
 )
 
-// --- Server ---
+// --- Server 定義 ---
 type Server struct {
 	pb.UnimplementedGNMIServer
 }
@@ -53,19 +66,18 @@ func (s *Server) Capabilities(ctx context.Context, req *pb.CapabilityRequest) (*
 	}, nil
 }
 
+// --- 共通データ収集ロジック ---
 func (s *Server) collectUpdates(reqPath *pb.Path) []*pb.Update {
 	var updates []*pb.Update
-
-	// パス解析
 	reqPathStr, reqKeys := parsePath(reqPath)
 
-	// 定義済みパスを全走査 (Prefix Match)
-	for definedPath, mapping := range config.Paths {
+	// config.Mapping.Paths を参照するように変更
+	for definedPath, mapping := range config.Mapping.Paths {
 		if !strings.HasPrefix(definedPath, reqPathStr) {
 			continue
 		}
 
-		// A. Index不要 (System系)
+		// A. Index不要
 		if !mapping.RequiresIndex {
 			val, err := fetchSNMP(mapping.OID)
 			if err == nil {
@@ -77,7 +89,7 @@ func (s *Server) collectUpdates(reqPath *pb.Path) []*pb.Update {
 			continue
 		}
 
-		// B. Index必要 (Interface系)
+		// B. Index必要
 		mapMutex.RLock()
 		currentMap := make(map[string]string)
 		for k, v := range ifIndexMap {
@@ -114,37 +126,32 @@ func (s *Server) collectUpdates(reqPath *pb.Path) []*pb.Update {
 	return updates
 }
 
+// --- Get ---
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	if len(req.Path) == 0 {
 		return &pb.GetResponse{}, nil
 	}
-
 	updates := s.collectUpdates(req.Path[0])
-
 	return &pb.GetResponse{
 		Notification: []*pb.Notification{
-			{
-				Timestamp: time.Now().UnixNano(),
-				Update:    updates,
-			},
+			{Timestamp: time.Now().UnixNano(), Update: updates},
 		},
 	}, nil
 }
 
-
+// --- Subscribe ---
 func (s *Server) Subscribe(stream pb.GNMI_SubscribeServer) error {
 	req, err := stream.Recv()
 	if err != nil {
 		return err
 	}
-
 	subList := req.GetSubscribe()
 	if subList == nil {
 		return fmt.Errorf("subscribe request must contain SubscriptionList")
 	}
 
 	mode := subList.Mode
-	log.Printf("Subscribe Request Received. Mode: %v", mode)
+	log.Printf("Subscribe Mode: %v", mode)
 
 	interval := 10 * time.Second
 	var targetPaths []*pb.Path
@@ -155,49 +162,36 @@ func (s *Server) Subscribe(stream pb.GNMI_SubscribeServer) error {
 			interval = time.Duration(sub.SampleInterval)
 		}
 	}
-	log.Printf("Start Streaming. Interval: %s, Paths: %d", interval, len(targetPaths))
 
-	// SyncResponse(subscribeの枕詞)
 	if err := stream.Send(&pb.SubscribeResponse{
 		Response: &pb.SubscribeResponse_SyncResponse{SyncResponse: true},
 	}); err != nil {
 		return err
 	}
 
-	// STREAMモード以外は省略
 	if mode != pb.SubscriptionList_STREAM {
 		return nil
 	}
 
-	//ループ開始
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	sendUpdate := func(t time.Time) error {
 		var allUpdates []*pb.Update
-
-		// リクエストされた全パスのデータを収集
 		for _, p := range targetPaths {
 			updates := s.collectUpdates(p)
 			allUpdates = append(allUpdates, updates...)
 		}
-
 		if len(allUpdates) > 0 {
-			resp := &pb.SubscribeResponse{
+			return stream.Send(&pb.SubscribeResponse{
 				Response: &pb.SubscribeResponse_Update{
-					Update: &pb.Notification{
-						Timestamp: t.UnixNano(),
-						Update:    allUpdates,
-					},
+					Update: &pb.Notification{Timestamp: t.UnixNano(), Update: allUpdates},
 				},
-			}
-			log.Printf("Sending %d updates...", len(allUpdates))
-			return stream.Send(resp)
+			})
 		}
 		return nil
 	}
 
-	// 初回送信: ダメなら諦める
 	if err := sendUpdate(time.Now()); err != nil {
 		return err
 	}
@@ -209,18 +203,18 @@ func (s *Server) Subscribe(stream pb.GNMI_SubscribeServer) error {
 			return nil
 		case t := <-ticker.C:
 			if err := sendUpdate(t); err != nil {
-				log.Printf("Send error: %v", err)
 				return err
 			}
 		}
 	}
 }
 
-// Set←未実装なのは複雑すぎるのと危険だから
+// Set (未実装)
 func (s *Server) Set(ctx context.Context, req *pb.SetRequest) (*pb.SetResponse, error) {
 	return &pb.SetResponse{Timestamp: time.Now().UnixNano()}, nil
 }
 
+// --- Helpers ---
 func parsePath(p *pb.Path) (string, map[string]string) {
 	var parts []string
 	keys := make(map[string]string)
@@ -248,11 +242,12 @@ func stringToPath(pathStr string, keys map[string]string) *pb.Path {
 	return &pb.Path{Elem: elems}
 }
 
+// config.Server を参照するように変更
 func fetchSNMP(oid string) (interface{}, error) {
 	client := &gosnmp.GoSNMP{
-		Target:    config.SnmpTarget,
+		Target:    config.Server.SnmpTarget,
 		Port:      161,
-		Community: config.Community,
+		Community: config.Server.Community,
 		Version:   gosnmp.Version2c,
 		Timeout:   time.Duration(1) * time.Second,
 		Retries:   0,
@@ -291,11 +286,12 @@ func convertToTypedValue(val interface{}, expectedType string) *pb.TypedValue {
 	}
 }
 
+// config.Server を参照するように変更
 func updateInterfaceMap() {
 	client := &gosnmp.GoSNMP{
-		Target:    config.SnmpTarget,
+		Target:    config.Server.SnmpTarget,
 		Port:      161,
-		Community: config.Community,
+		Community: config.Server.Community,
 		Version:   gosnmp.Version2c,
 		Timeout:   time.Duration(2) * time.Second,
 	}
@@ -306,7 +302,7 @@ func updateInterfaceMap() {
 	defer client.Conn.Close()
 
 	newMap := make(map[string]string)
-	client.BulkWalk(config.IfNameOID, func(pdu gosnmp.SnmpPDU) error {
+	client.BulkWalk(config.Server.IfNameOID, func(pdu gosnmp.SnmpPDU) error {
 		oidParts := strings.Split(pdu.Name, ".")
 		index := oidParts[len(oidParts)-1]
 		var name string
@@ -331,32 +327,49 @@ func updateInterfaceMap() {
 
 func backgroundRefresher() {
 	updateInterfaceMap()
-	ticker := time.NewTicker(time.Duration(config.RefreshIntervalSec) * time.Second)
+	ticker := time.NewTicker(time.Duration(config.Server.RefreshIntervalSec) * time.Second)
 	for range ticker.C {
 		updateInterfaceMap()
 	}
 }
 
+// --- Main ---
 func main() {
-	data, err := ioutil.ReadFile("mapping.yaml")
+	// 1. サーバー設定 (server_config.yaml) の読み込み
+	serverData, err := ioutil.ReadFile("server_config.yaml")
 	if err != nil {
-		log.Fatalf("Read yaml failed: %v", err)
+		log.Fatalf("Failed to read server_config.yaml: %v", err)
 	}
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		log.Fatalf("Parse yaml failed: %v", err)
+	if err := yaml.Unmarshal(serverData, &config.Server); err != nil {
+		log.Fatalf("Failed to parse server_config.yaml: %v", err)
 	}
 
+	// 2. マッピング設定 (mapping.yaml) の読み込み
+	mappingData, err := ioutil.ReadFile("mapping.yaml")
+	if err != nil {
+		log.Fatalf("Failed to read mapping.yaml: %v", err)
+	}
+	if err := yaml.Unmarshal(mappingData, &config.Mapping); err != nil {
+		log.Fatalf("Failed to parse mapping.yaml: %v", err)
+	}
+
+	log.Printf("Loaded Config. Port: %d, Target: %s", config.Server.Port, config.Server.SnmpTarget)
+
+	// 自動更新開始
 	go backgroundRefresher()
 
-	lis, err := net.Listen("tcp", ":50051")
+	// 3. 設定ファイルで指定されたポートでリッスン
+	addr := fmt.Sprintf(":%d", config.Server.Port)
+	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+
 	s := grpc.NewServer()
 	pb.RegisterGNMIServer(s, &Server{})
 	reflection.Register(s)
 
-	log.Printf("gNMI-SNMP Server (Get/Subscribe) listening on :50051")
+	log.Printf("gNMI Server listening on %s", addr)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
