@@ -1,6 +1,26 @@
 from netmiko import ConnectHandler, file_transfer
 import time
 
+ARCH_MAP = {
+    "x86_64": "amd64",
+    "amd64": "amd64",
+    "aarch64": "arm64",
+    "arm64": "arm64",
+}
+
+SHELL_ENTRY_COMMAND = [ #NOSのCLIからshellに入るためのコマンド
+    "",
+    "bash",
+    "start shell",
+    "system shell",
+    "request platform software system shell"
+]
+
+"""
+Linuxコマンドが実行できる = バイナリが実行できるではないが、NOS名のパターンマッチより汎用的なのでこうした
+"""
+
+
 class Dist:
     def __init__(self, ip_address: str, ssh_username: str, ssh_password: str, nos: str):
         self.ip_address = ip_address
@@ -10,9 +30,35 @@ class Dist:
         self.login = {"device_type": self.nos, "host": self.ip_address, "username": self.ssh_username, "password": self.ssh_password}
         self.arch = None
         self.path = None
+        self.check_cmd = None
+        self.capable = False
 
-    def check_nos(self) -> bool: #self.nosから正規表現とかで?←要検討
-        pass
+    def detect_capability(self) -> bool: #linuxコマンド通じるか
+        try:
+            c = ConnectHandler(**self.login)
+            for cmd in SHELL_ENTRY_COMMAND:
+                try:
+                    if cmd:
+                        c.send_command(cmd, expect_string=r"#|\$|%", delay_factor=2)
+                    raw_arch = c.send_command("uname -m").strip()
+                    if any(x in raw_arch.lower() for x in ["invalid", "syntax", "unknown", "error"]):
+                        continue
+                    self._cached_arch = ARCH_MAP.get(raw_arch, raw_arch)
+                    raw_path = c.send_command("pwd").strip()
+                    if not raw_path.endswith("/"):
+                        raw_path += "/"
+                    self._cached_path = raw_path
+                    #将来のためにとっとく
+                    self._entry_cmd = cmd
+                    self._is_capable = True
+                    c.disconnect()
+                    return True
+                except Exception:
+                    continue
+            c.disconnect()
+            return False
+        except Exception:
+            return False
 
     def check_arch(self) -> str:
         if self.arch:
@@ -23,13 +69,7 @@ class Dist:
             c.disconnect()
         except:
             return "unknown"
-        mapping = {
-            "x86_64": "amd64",
-            "amd64": "amd64",
-            "aarch64": "arm64",
-            "arm64": "arm64",
-        }
-        self.arch = mapping.get(arch, arch)
+        self.arch = ARCH_MAP.get(arch, arch)
         return self.arch
 
 
@@ -155,16 +195,17 @@ class Dist:
 
 if __name__ == "__main__":
     d = Dist(ip_address="172.31.254.5", ssh_username="vyos", ssh_password="vyos", nos="vyos")
-    print(d.redeploy(local_paths=[
-        "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
-        "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
-        "/home/user/SNMP_gNMI_Orchestrator/proxy/server_config.yaml"
-        ]
-    ))
-    print(d.remote_stop())
-    print(d.remote_del(local_paths=[
-        "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
-        "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
-        "/home/user/SNMP_gNMI_Orchestrator/proxy/server_config.yaml"
-        ]
-    ))
+    print(d.detect_capability())
+    #print(d.redeploy(local_paths=[
+    #    "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
+    #    "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
+    #    "/home/user/SNMP_gNMI_Orchestrator/proxy/server_config.yaml"
+    #    ]
+    #))
+    #print(d.remote_stop())
+    #print(d.remote_del(local_paths=[
+    #    "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
+    #    "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
+    #    "/home/user/SNMP_gNMI_Orchestrator/proxy/server_config.yaml"
+    #    ]
+    #))

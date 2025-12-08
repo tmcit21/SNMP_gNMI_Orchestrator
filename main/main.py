@@ -1,5 +1,5 @@
 import tomllib
-from explorer import sysdescr
+from explorer import sysdescr, dist
 from confmanager import enable
 from save import store
 from typing import Any
