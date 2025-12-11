@@ -36,7 +36,7 @@ gnmi_port_secure = 57400      # TLSあり
 gnmi_port_insecure = 57401    # なし
 gnmi_insecure = true
 
-# SSH（SNMP-only 機器の設定変更に使用）
+# SSH（機器の設定変更に使用）
 ssh_username = "admin"
 ssh_password = "NokiaSrl1!"
 

@@ -1,3 +1,4 @@
+#
 import tomllib
 from explorer import sysdescr, dist
 from confmanager import enable
@@ -7,9 +8,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import asyncio
 import ipaddress
 import time
+import os
 
+GNMI_SUCCESSED_MESSAGE = "gNMI Configuration SUCCESSED"
 GNMI_FAILED_MESSAGE = "gNMI Configuration FAILED"
+PROXY_DEPLOYED_MESSAGE = "Proxy is DEPLOYED and RUNNING"
 DEBUG = False
+PROXY_PATH = os.path.join(os.path.dirname(os.getcwd()), "proxy/")
 
 class Controller():
     def __init__(self, parameter, workers=50):
@@ -64,8 +69,6 @@ class Controller():
                     pass
         self.table = valid_hosts
 
-    def waiting(self): #
-        pass
 
     def _set_gnmi(self, ip: str, config: dict) -> tuple[str, str | None]:
         c = enable.Conn(ip_address=ip, gnmi_username=config["gnmi_username"], ssh_username=config["ssh_username"], gnmi_password=config["gnmi_password"], ssh_password=config["ssh_password"],
@@ -93,7 +96,7 @@ class Controller():
                 ip, result = done.result()
                 s = store.Store(debug=DEBUG)
                 if result:
-                    s.save_log(ip, result)
+                    s.save_log(ip, GNMI_SUCCESSED_MESSAGE)
                 else:
                     s.save_log(ip, GNMI_FAILED_MESSAGE)
                     self.candidate.add(ip)
@@ -105,21 +108,47 @@ class Controller():
             if k in self.nos_table:
                 self.nos_table[k] = v
 
-    def dist(self):
-        pass
+    def _deploy_single_proxy(self, ip: str) -> bool:
+        d = dist.Dist(ip_address=ip, ssh_username=self.table[ip]["ssh_username"], ssh_password=self.table[ip]["ssh_password"], nos=self.table[ip]["nos"],
+            snmp_community=self.table[ip]["snmp_community"])
+        if d.detect_capability():
+            return d.redeploy([f"{PROXY_PATH}mapping.yaml", f"{PROXY_PATH}gnmi-proxy-{d.check_arch()}"])
+        else:
+            return False
+
+    def deploy_proxy(self) -> None:
+        if not self.candidate:
+            print("No candidates")
+            return
+        with ThreadPoolExecutor(max_workers=self.workers) as executor:
+            future_to_ip = {
+                executor.submit(self._deploy_single_proxy, ip): ip
+                for ip in self.candidate
+            }
+            
+            for future in as_completed(future_to_ip):
+                ip = future_to_ip[future]
+                self.candidate.discard(ip)
+                s = store.Store(debug=DEBUG)
+                try:
+                    result = future.result()
+                    s.save_log(ip, PROXY_DEPLOYED_MESSAGE)
+                except Exception as e:
+                    result = f"Exception: {e}"
+                    s.save_log(ip, result)
 
     def run(self) -> None:
-        starttime = time.monotonic()
-        self.read()
-        self.addr_prune()
-        self.match_conf()
-        self.enconf()
-        self.dist()
-        endtime = time.monotonic()
-        endtime - starttime
-        print(self.table)
-        print()
-        print(self.candidate)
+        while True:
+            starttime = time.monotonic()
+            self.read()
+            self.addr_prune()
+            self.match_conf()
+            self.enconf()
+            self.deploy_proxy()
+            endtime = time.monotonic()
+            if endtime - starttime >= self.paramater["global"]["explore_interval"]:
+                time.sleep((endtime - starttime) % self.paramater["global"]["explore_interval"])
+
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 from netmiko import ConnectHandler, file_transfer
-import time
+import time, tempfile, os, yaml
+
 
 ARCH_MAP = {
     "x86_64": "amd64",
@@ -22,16 +23,32 @@ Linuxコマンドが実行できる = バイナリが実行できるではない
 
 
 class Dist:
-    def __init__(self, ip_address: str, ssh_username: str, ssh_password: str, nos: str):
+    def __init__(self, ip_address: str, ssh_username: str, ssh_password: str, nos: str, snmp_community: str, snmp_target: str = "127.0.0.1", grpc_port: int=57401):
         self.ip_address = ip_address
         self.ssh_username = ssh_username
         self.ssh_password = ssh_password
         self.nos = nos
+        self.snmp_community = snmp_community
+        self.snmp_target = snmp_target
+        self.grpc_port = grpc_port
         self.login = {"device_type": self.nos, "host": self.ip_address, "username": self.ssh_username, "password": self.ssh_password}
-        self.arch = None
-        self.path = None
-        self.check_cmd = None
-        self.capable = False
+        self.arch = None #amd64かarm64か
+        self.path = None #Proxyのファイルの置き場所
+        self._entry_cmd_cmd = None
+        self._is_capable = False
+
+    def gen_conf(self) -> str:
+        config_data = {
+            "refresh_interval_sec": 60,
+            "if_name_oid": ".1.3.6.1.2.1.2.2.1.2",
+            "snmp_target": self.snmp_target,
+            "community": self.snmp_community,
+            "port": self.grpc_port
+        }
+        fd, path = tempfile.mkstemp(suffix=".yaml", text=True)
+        with os.fdopen(fd, 'w') as f:
+            yaml.dump(config_data, f, default_flow_style=False)
+        return path
 
     def detect_capability(self) -> bool: #linuxコマンド通じるか
         try:
@@ -43,11 +60,11 @@ class Dist:
                     raw_arch = c.send_command("uname -m").strip()
                     if any(x in raw_arch.lower() for x in ["invalid", "syntax", "unknown", "error"]):
                         continue
-                    self._cached_arch = ARCH_MAP.get(raw_arch, raw_arch)
+                    self.arch = ARCH_MAP.get(raw_arch, raw_arch)
                     raw_path = c.send_command("pwd").strip()
                     if not raw_path.endswith("/"):
                         raw_path += "/"
-                    self._cached_path = raw_path
+                    self.path = raw_path
                     #将来のためにとっとく
                     self._entry_cmd = cmd
                     self._is_capable = True
@@ -73,7 +90,7 @@ class Dist:
         return self.arch
 
 
-    def check_path(self) -> str: #配置するパス #あとで実装!!!!!!
+    def check_path(self) -> str: #配置するパス
         if self.path:
             return self.path
         try:
@@ -90,12 +107,18 @@ class Dist:
 
     def remote_send(self, local_paths: list) -> bool: #配置
         file_system = self.check_path()
+        temp_config_path = self.gen_conf()
+        upload_targets = local_paths.copy()
+        upload_targets.append(temp_config_path)
         try:
             c = ConnectHandler(**self.login)
-            for local_path in local_paths:
+            for local_path in upload_targets:
                 dest_file = local_path.rpartition('/')[2]
-                file_transfer(c, source_file=local_path, dest_file=dest_file, file_system=file_system, direction="put", overwrite_file=True)
-                c.send_command(f"chmod +x {file_system}{dest_file}")
+                if local_path == temp_config_path:
+                    file_transfer(c, source_file=local_path, dest_file="server_config.yaml", file_system=file_system, direction="put", overwrite_file=True, )
+                else:
+                    file_transfer(c, source_file=local_path, dest_file=dest_file, file_system=file_system, direction="put", overwrite_file=True)
+                    c.send_command(f"chmod +x {file_system}{dest_file}")
             c.disconnect()
             return True
         except Exception:
@@ -103,17 +126,23 @@ class Dist:
                 tmp = self.login["device_type"]
                 self.login["device_type"] = "linux"
                 c = ConnectHandler(**self.login)
-                for local_path in local_paths:
+                for local_path in upload_targets:
                     dest_file = local_path.rpartition('/')[2]
-                    file_transfer(c, source_file=local_path, dest_file=dest_file, file_system=file_system, direction="put", overwrite_file=True)
-                    c.send_command(f"chmod +x {file_system}{dest_file}")
+                    if local_path == temp_config_path:
+                        file_transfer(c, source_file=local_path, dest_file="server_config.yaml", file_system=file_system, direction="put", overwrite_file=True, )
+                    else:
+                        file_transfer(c, source_file=local_path, dest_file=dest_file, file_system=file_system, direction="put", overwrite_file=True)
+                        c.send_command(f"chmod +x {file_system}{dest_file}")
                 c.disconnect()
                 self.login["device_type"] = tmp
                 return True
             except Exception:
                 return False
+        finally:
+            if os.path.exists(temp_config_path):
+                os.remove(temp_config_path)
 
-    def remote_del(self, local_paths: list) -> bool: #replaceしてから削除
+    def remote_del(self, local_paths: list) -> bool:
         file_system = self.check_path()
         try:
             c = ConnectHandler(**self.login)
@@ -156,26 +185,6 @@ class Dist:
 
         except Exception as e:
             return False
-        """
-        try:
-            c = ConnectHandler(**self.login)
-            c.send_command(f"sudo systemctl stop gnmi-proxy || true") #port占有しないように
-            c.send_command(cmd)
-            time.sleep(2)
-            #check = c.send_command(f"pgrep -f {full_path}")
-            check = c.send_command(f"systemctl is-active gnmi-proxy")
-            print(check)
-            c.disconnect()
-            if "active" in check:
-                print("Warning: Process might not have started.")
-                return False
-            else:
-                print(f"Success! PID: {check.strip()}")
-                return True
-        except Exception as e:
-            print(f"Run Error: {e}")
-            return False
-        """
 
     def remote_stop(self) -> bool:
         try:
@@ -194,18 +203,21 @@ class Dist:
         return self.remote_run()
 
 if __name__ == "__main__":
-    d = Dist(ip_address="172.31.254.5", ssh_username="vyos", ssh_password="vyos", nos="vyos")
-    print(d.detect_capability())
+    local_paths=[
+        "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
+        "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
+        ]
+    d = Dist(ip_address="172.31.254.5", ssh_username="vyos", ssh_password="vyos", nos="vyos", snmp_community="public")
+    print(d.remote_send(local_paths))
+    #print(d.detect_capability())
     #print(d.redeploy(local_paths=[
     #    "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
     #    "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
-    #    "/home/user/SNMP_gNMI_Orchestrator/proxy/server_config.yaml"
     #    ]
     #))
     #print(d.remote_stop())
     #print(d.remote_del(local_paths=[
     #    "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
     #    "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
-    #    "/home/user/SNMP_gNMI_Orchestrator/proxy/server_config.yaml"
     #    ]
     #))
