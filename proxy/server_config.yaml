@@ -1,12 +1,12 @@
-# config.yaml
+# server_config.yaml
+
+# gNMIサーバーがリッスンするポート
+port: 57401
+
+# SNMPターゲット設定 (オンボックスなら localhost)
+snmp_target: "127.0.0.1"
+community: "public"
 
 # インターフェース自動検知の間隔とOID
 refresh_interval_sec: 60
 if_name_oid: ".1.3.6.1.2.1.2.2.1.2"
-
-# gNMIサーバーがlistenするポート
-port: 50051
-
-# SNMPターゲット設定
-snmp_target: "127.0.0.1"
-community: "public"

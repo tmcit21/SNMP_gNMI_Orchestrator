@@ -29,7 +29,7 @@ class Dist:
         self.ssh_password = ssh_password
         self.nos = nos
         self.snmp_community = snmp_community
-        self.snmp_target = snmp_target
+        self.snmp_target = ip_address # ここはlocalhost使わない
         self.grpc_port = grpc_port
         self.login = {"device_type": self.nos, "host": self.ip_address, "username": self.ssh_username, "password": self.ssh_password}
         self.arch = None #amd64かarm64か

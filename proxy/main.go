@@ -13,13 +13,12 @@ import (
 	"github.com/gosnmp/gosnmp"
 	pb "github.com/openconfig/gnmi/proto/gnmi"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 )
 
-// --- 設定構造体の定義 ---
-
-// 全体の設定を保持する親構造体
 type AppConfig struct {
 	Server  ServerConfig
 	Mapping MappingConfig
@@ -46,14 +45,12 @@ type PathConf struct {
 	RequiresIndex bool   `yaml:"requires_index"`
 }
 
-// --- グローバル変数 ---
 var (
 	config     AppConfig
 	ifIndexMap = make(map[string]string)
 	mapMutex   sync.RWMutex
 )
 
-// --- Server 定義 ---
 type Server struct {
 	pb.UnimplementedGNMIServer
 }
@@ -73,30 +70,29 @@ func (s *Server) Capabilities(ctx context.Context, req *pb.CapabilityRequest) (*
 	}, nil
 }
 
-
-func (s *Server) collectUpdates(reqPath *pb.Path) []*pb.Update {
+func (s *Server) collectUpdates(reqPath *pb.Path) ([]*pb.Update, error) {
 	var updates []*pb.Update
 	reqPathStr, reqKeys := parsePath(reqPath)
 
-	// config.Mapping.Paths を参照するように変更
 	for definedPath, mapping := range config.Mapping.Paths {
 		if !strings.HasPrefix(definedPath, reqPathStr) {
 			continue
 		}
 
-		// A. Index不要
+		// Index不要
 		if !mapping.RequiresIndex {
 			val, err := fetchSNMP(mapping.OID)
-			if err == nil {
-				updates = append(updates, &pb.Update{
-					Path: stringToPath(definedPath, nil),
-					Val:  convertToTypedValue(val, mapping.Type),
-				})
+			if err != nil {
+				return nil, fmt.Errorf("SNMP failed for %s (OID: %s): %w", definedPath, mapping.OID, err)
 			}
+			updates = append(updates, &pb.Update{
+				Path: stringToPath(definedPath, nil),
+				Val:  convertToTypedValue(val, mapping.Type),
+			})
 			continue
 		}
 
-		// B. Index必要
+		// Index必要
 		mapMutex.RLock()
 		currentMap := make(map[string]string)
 		for k, v := range ifIndexMap {
@@ -109,28 +105,30 @@ func (s *Server) collectUpdates(reqPath *pb.Path) []*pb.Update {
 			if idx, found := currentMap[reqName]; found {
 				targetOID := mapping.OIDBase + "." + idx
 				val, err := fetchSNMP(targetOID)
-				if err == nil {
-					updates = append(updates, &pb.Update{
-						Path: stringToPath(definedPath, map[string]string{"name": reqName}),
-						Val:  convertToTypedValue(val, mapping.Type),
-					})
+				if err != nil {
+					return nil, fmt.Errorf("SNMP failed for %s (OID: %s): %w", definedPath, targetOID, err)
 				}
+				updates = append(updates, &pb.Update{
+					Path: stringToPath(definedPath, map[string]string{"name": reqName}),
+					Val:  convertToTypedValue(val, mapping.Type),
+				})
 			}
 		} else {
-			// キー指定なし (全展開)
+			// キー指定なし
 			for ifName, idx := range currentMap {
 				targetOID := mapping.OIDBase + "." + idx
 				val, err := fetchSNMP(targetOID)
-				if err == nil {
-					updates = append(updates, &pb.Update{
-						Path: stringToPath(definedPath, map[string]string{"name": ifName}),
-						Val:  convertToTypedValue(val, mapping.Type),
-					})
+				if err != nil {
+					return nil, fmt.Errorf("SNMP failed for %s[%s]: %w", definedPath, ifName, err)
 				}
+				updates = append(updates, &pb.Update{
+					Path: stringToPath(definedPath, map[string]string{"name": ifName}),
+					Val:  convertToTypedValue(val, mapping.Type),
+				})
 			}
 		}
 	}
-	return updates
+	return updates, nil
 }
 
 // --- Get ---
@@ -138,7 +136,19 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 	if len(req.Path) == 0 {
 		return &pb.GetResponse{}, nil
 	}
-	updates := s.collectUpdates(req.Path[0])
+
+	updates, err := s.collectUpdates(req.Path[0])
+	if err != nil {
+		// codes.Unavailableなのかcodes.Internalなのか調べとく
+		return nil, status.Errorf(codes.Unavailable, "Backend SNMP Error: %v", err)
+	}
+
+	if len(updates) == 0 {
+		log.Printf("No data found for path: %v", req.Path[0])
+		// NotFound返す
+		return nil, status.Errorf(codes.NotFound, "No data found for the requested path. Check mapping.yaml or SNMP device status.")
+	}
+
 	return &pb.GetResponse{
 		Notification: []*pb.Notification{
 			{Timestamp: time.Now().UnixNano(), Update: updates},
@@ -186,7 +196,11 @@ func (s *Server) Subscribe(stream pb.GNMI_SubscribeServer) error {
 	sendUpdate := func(t time.Time) error {
 		var allUpdates []*pb.Update
 		for _, p := range targetPaths {
-			updates := s.collectUpdates(p)
+			updates, err := s.collectUpdates(p)
+			if err != nil {
+				log.Printf("Subscribe collection failed: %v", err)
+				return status.Errorf(codes.Unavailable, "SNMP Error during subscribe: %v", err)
+			}
 			allUpdates = append(allUpdates, updates...)
 		}
 		if len(allUpdates) > 0 {
@@ -195,6 +209,10 @@ func (s *Server) Subscribe(stream pb.GNMI_SubscribeServer) error {
 					Update: &pb.Notification{Timestamp: t.UnixNano(), Update: allUpdates},
 				},
 			})
+		}
+		if len(allUpdates) == 0 {
+			log.Println("No data collected for subscription. Closing stream.")
+			return status.Errorf(codes.NotFound, "No data found for subscribed paths.")
 		}
 		return nil
 	}
@@ -340,9 +358,8 @@ func backgroundRefresher() {
 	}
 }
 
-// --- Main ---
 func main() {
-	// 1. サーバー設定 (server_config.yaml) の読み込み
+	// server_config.yaml読み込み
 	serverData, err := ioutil.ReadFile("server_config.yaml")
 	if err != nil {
 		log.Fatalf("Failed to read server_config.yaml: %v", err)
@@ -351,7 +368,7 @@ func main() {
 		log.Fatalf("Failed to parse server_config.yaml: %v", err)
 	}
 
-	// 2. マッピング設定 (mapping.yaml) の読み込み
+	// mapping.yaml読み込み
 	mappingData, err := ioutil.ReadFile("mapping.yaml")
 	if err != nil {
 		log.Fatalf("Failed to read mapping.yaml: %v", err)
@@ -360,12 +377,8 @@ func main() {
 		log.Fatalf("Failed to parse mapping.yaml: %v", err)
 	}
 
-	log.Printf("Loaded Config. Port: %d, Target: %s", config.Server.Port, config.Server.SnmpTarget)
-
-	// 自動更新開始
 	go backgroundRefresher()
 
-	// 3. 設定ファイルで指定されたポートでリッスン
 	addr := fmt.Sprintf(":%d", config.Server.Port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
