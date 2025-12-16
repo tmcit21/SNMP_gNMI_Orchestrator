@@ -60,12 +60,12 @@ func (s *Server) Capabilities(ctx context.Context, req *pb.CapabilityRequest) (*
 		SupportedModels: []*pb.ModelData{
 			// OpenConfig関係ないし本来使えないのでそのこと明示
 			{
-				Name:         "gNMI-SNMP-Proxy",
-				Organization: "Generic-Proxy",
+				Name:         "gNMI-SNMP-Gateway",
+				Organization: "Generic-Gateway",
 				Version:      "0.0.1",
 			},
 		},
-		SupportedEncodings: []pb.Encoding{pb.Encoding_JSON_IETF},
+		SupportedEncodings: []pb.Encoding{pb.Encoding_JSON_IETF, pb.Encoding_PROTO},
 		GNMIVersion:        "0.7.0",
 	}, nil
 }
