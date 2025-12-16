@@ -23,14 +23,16 @@ Linuxコマンドが実行できる = バイナリが実行できるではない
 
 
 class Dist:
-    def __init__(self, ip_address: str, ssh_username: str, ssh_password: str, nos: str, snmp_community: str, snmp_target: str = "127.0.0.1", grpc_port: int=57401):
+    def __init__(self, ip_address: str, ssh_username: str, ssh_password: str, nos: str, snmp_community: str, snmp_target: str = "127.0.0.1", grpc_port: int=57401,
+    if_refresh_interval: int =60):
         self.ip_address = ip_address
         self.ssh_username = ssh_username
         self.ssh_password = ssh_password
         self.nos = nos
         self.snmp_community = snmp_community
-        self.snmp_target = ip_address # ここはlocalhost使わない
+        self.snmp_target = snmp_target # ここはlocalhost使わない
         self.grpc_port = grpc_port
+        self.if_refresh_interval = if_refresh_interval
         self.login = {"device_type": self.nos, "host": self.ip_address, "username": self.ssh_username, "password": self.ssh_password}
         self.arch = None #amd64かarm64か
         self.path = None #Proxyのファイルの置き場所
@@ -39,7 +41,7 @@ class Dist:
 
     def gen_conf(self) -> str:
         config_data = {
-            "refresh_interval_sec": 60,
+            "refresh_interval_sec": self.if_refresh_interval,
             "if_name_oid": ".1.3.6.1.2.1.2.2.1.2",
             "snmp_target": self.snmp_target,
             "community": self.snmp_community,
