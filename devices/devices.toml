@@ -1,18 +1,4 @@
 # -----------------------------------------------------
-# [collector]  gNMI Client
-# -----------------------------------------------------
-[collector]
-host = "192.168.100.100"
-port = 9092
-username = ""
-password = ""
-tls = false
-
-#いらない
-protocol = "kafka"
-stream = "srl_telemetry"
-
-# -----------------------------------------------------
 # [global]  コマンドで上書き可
 # -----------------------------------------------------
 
@@ -26,8 +12,17 @@ exclude = ["172.31.254.254", "172.31.254.1"]  # 除外IP（任意）
 # -----------------------------------------------------
 [default]
 
-# SNMP 認証（v2c）
+# SNMP 設定（v1, v2c）
 snmp_community = "public"
+
+# SNMP 設定 (v3)
+security_level = 0
+auth_type = ""
+snmp_user = ""
+snmp_password = ""
+priv_protocol = ""
+pp_password = ""
+
 
 # gNMI 認証情報
 gnmi_username = "admin"

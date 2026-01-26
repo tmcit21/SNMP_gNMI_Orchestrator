@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/gosnmp/gosnmp"
+	"github.com/openconfig/gnmi/cache"
 	pb "github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/gnmi/subscribe"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
@@ -26,11 +28,13 @@ type AppConfig struct {
 
 // server_config.yaml 用
 type ServerConfig struct {
-	Port               int    `yaml:"port"`
-	SnmpTarget         string `yaml:"snmp_target"`
-	Community          string `yaml:"community"`
-	RefreshIntervalSec int    `yaml:"refresh_interval_sec"`
-	IfNameOID          string `yaml:"if_name_oid"`
+	Port       int    `yaml:"port"`
+	SnmpTarget string `yaml:"snmp_target"`
+	Community  string `yaml:"community"`
+	//RefreshIntervalSec int    `yaml:"refresh_interval_sec"`
+	IfNameOID              string `yaml:"if_name_oid"`
+	MapRefreshIntervalSec  int    `yaml:"refresh_interval_sec"`
+	CacheUpdateIntervalSec int    `yaml:"cache_interval_sec"`
 }
 
 // mapping.yaml 用
@@ -49,10 +53,13 @@ var (
 	config     AppConfig
 	ifIndexMap = make(map[string]string)
 	mapMutex   sync.RWMutex
+	targetName = "local"
 )
 
 type Server struct {
 	pb.UnimplementedGNMIServer
+	cache           *cache.Cache
+	subscribeServer *subscribe.Server
 }
 
 func (s *Server) Capabilities(ctx context.Context, req *pb.CapabilityRequest) (*pb.CapabilityResponse, error) {
@@ -131,7 +138,8 @@ func (s *Server) collectUpdates(reqPath *pb.Path) ([]*pb.Update, error) {
 	return updates, nil
 }
 
-// --- Get ---
+// --- Get ---(cache不使用)
+/*
 func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	if len(req.Path) == 0 {
 		return &pb.GetResponse{}, nil
@@ -155,8 +163,9 @@ func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, 
 		},
 	}, nil
 }
-
+*/
 // --- Subscribe ---
+/*
 func (s *Server) Subscribe(stream pb.GNMI_SubscribeServer) error {
 	req, err := stream.Recv()
 	if err != nil {
@@ -233,6 +242,164 @@ func (s *Server) Subscribe(stream pb.GNMI_SubscribeServer) error {
 		}
 	}
 }
+*/
+
+type collectorStream struct {
+	grpc.ServerStream
+	ctx           context.Context
+	req           *pb.SubscribeRequest // Cacheに渡すためのリクエスト
+	reqSent       bool                 // リクエストをRecvで渡したかどうかのフラグ
+	notifications []*pb.Notification   // 収集した通知データ
+	err           error
+}
+
+func NewCollectorStream(ctx context.Context, getReq *pb.GetRequest) *collectorStream {
+	subs := []*pb.Subscription{}
+	for _, p := range getReq.Path {
+		subs = append(subs, &pb.Subscription{Path: p})
+	}
+
+	// 1. Prefix の安全な初期化
+	prefix := getReq.Prefix
+	if prefix == nil {
+		prefix = &pb.Path{}
+	}
+	// 2. Target が空なら、サーバーで定義している targetName ("device1") を補完する
+	// これがないと、Cache内の "device1" のデータとマッチしません
+	if prefix.Target == "" {
+		prefix.Target = targetName
+	}
+
+	return &collectorStream{
+		ctx: ctx,
+		req: &pb.SubscribeRequest{
+			Request: &pb.SubscribeRequest_Subscribe{
+				Subscribe: &pb.SubscriptionList{
+					Prefix:       prefix, // 補完した prefix を渡す
+					Subscription: subs,
+					Mode:         pb.SubscriptionList_ONCE,
+					Encoding:     getReq.Encoding,
+				},
+			},
+		},
+	}
+}
+
+func (cs *collectorStream) Context() context.Context {
+	if cs.ctx == nil {
+		return context.Background()
+	}
+	return cs.ctx
+}
+
+func (cs *collectorStream) Send(resp *pb.SubscribeResponse) error {
+	switch v := resp.Response.(type) {
+	case *pb.SubscribeResponse_Update:
+		// データ更新通知 (Notification) を蓄積
+		cs.notifications = append(cs.notifications, v.Update)
+	case *pb.SubscribeResponse_SyncResponse:
+		// ONCEモードの完了通知。ここでは特に何もしなくてOK
+	}
+	return nil
+}
+
+func (cs *collectorStream) Recv() (*pb.SubscribeRequest, error) {
+	if cs.reqSent {
+		// 2回目以降は「これ以上リクエストはない」として EOF を返す
+		return nil, fmt.Errorf("EOF") // io.EOF 相当のエラーを返すのが通例ですが、grpc的にはerrorで抜けることが多い
+	}
+	cs.reqSent = true
+	return cs.req, nil
+}
+
+func (s *Server) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
+	// 擬似ストリームを作成
+	stream := NewCollectorStream(ctx, req)
+
+	// ★修正: subscribeServer に処理を委譲
+	// これにより、ワイルドカードやPrefixの処理が正しく行われます
+	err := s.subscribeServer.Subscribe(stream)
+
+	// EOFは正常終了
+	if err != nil && err.Error() != "EOF" {
+		// gRPCのエラーかどうかチェック
+		if st, ok := status.FromError(err); ok && st.Code() == codes.Unknown && st.Message() == "EOF" {
+			// 無視
+		} else {
+			log.Printf("Internal subscribe error during Get: %v", err)
+			return nil, status.Errorf(codes.Internal, "failed to retrieve data: %v", err)
+		}
+	}
+
+	if len(stream.notifications) == 0 {
+		return nil, status.Errorf(codes.NotFound, "path not found in cache")
+	}
+
+	return &pb.GetResponse{
+		Notification: stream.notifications,
+	}, nil
+}
+
+func (s *Server) Subscribe(stream pb.GNMI_SubscribeServer) error {
+	// ★修正: subscribeパッケージのサーバーに丸投げ
+	return s.subscribeServer.Subscribe(stream)
+}
+
+func startSnmpPoller(c *cache.Cache) {
+	t := c.GetTarget(targetName)
+	pollAndPush(t) // 初回実行
+
+	// ★修正: CacheUpdateIntervalSec を使用
+	ticker := time.NewTicker(time.Duration(config.Server.CacheUpdateIntervalSec) * time.Second)
+	for range ticker.C {
+		pollAndPush(t)
+	}
+}
+
+func pollAndPush(t *cache.Target) {
+	var allUpdates []*pb.Update
+
+	for definedPath, mapping := range config.Mapping.Paths {
+		if !mapping.RequiresIndex {
+			val, err := fetchSNMP(mapping.OID)
+			if err == nil {
+				allUpdates = append(allUpdates, &pb.Update{
+					Path: stringToPath(definedPath, nil),
+					Val:  convertToTypedValue(val, mapping.Type),
+				})
+			}
+			continue
+		}
+
+		mapMutex.RLock()
+		currentMap := make(map[string]string)
+		for k, v := range ifIndexMap {
+			currentMap[k] = v
+		}
+		mapMutex.RUnlock()
+
+		for ifName, idx := range currentMap {
+			targetOID := mapping.OIDBase + "." + idx
+			val, err := fetchSNMP(targetOID)
+			if err == nil {
+				allUpdates = append(allUpdates, &pb.Update{
+					Path: stringToPath(definedPath, map[string]string{"name": ifName}),
+					Val:  convertToTypedValue(val, mapping.Type),
+				})
+			}
+		}
+	}
+
+	if len(allUpdates) > 0 {
+		notif := &pb.Notification{
+			Timestamp: time.Now().UnixNano(),
+			Prefix:    &pb.Path{Target: targetName},
+			Update:    allUpdates,
+		}
+		t.GnmiUpdate(notif)
+		log.Printf("Poller: Pushed %d updates to cache", len(allUpdates))
+	}
+}
 
 // Set (未実装)
 func (s *Server) Set(ctx context.Context, req *pb.SetRequest) (*pb.SetResponse, error) {
@@ -240,6 +407,7 @@ func (s *Server) Set(ctx context.Context, req *pb.SetRequest) (*pb.SetResponse, 
 }
 
 // --- Helpers ---
+
 func parsePath(p *pb.Path) (string, map[string]string) {
 	var parts []string
 	keys := make(map[string]string)
@@ -351,8 +519,8 @@ func updateInterfaceMap() {
 }
 
 func backgroundRefresher() {
-	updateInterfaceMap()
-	ticker := time.NewTicker(time.Duration(config.Server.RefreshIntervalSec) * time.Second)
+	updateInterfaceMap() // 初回実行
+	ticker := time.NewTicker(time.Duration(config.Server.MapRefreshIntervalSec) * time.Second)
 	for range ticker.C {
 		updateInterfaceMap()
 	}
@@ -367,7 +535,18 @@ func main() {
 	if err := yaml.Unmarshal(serverData, &config.Server); err != nil {
 		log.Fatalf("Failed to parse server_config.yaml: %v", err)
 	}
+	if config.Server.MapRefreshIntervalSec <= 0 {
+		config.Server.MapRefreshIntervalSec = 300
+		log.Println("Config: refresh_interval_sec (Map) missing. Using default 300s.")
+	}
 
+	if config.Server.CacheUpdateIntervalSec <= 0 {
+		config.Server.CacheUpdateIntervalSec = 10
+		log.Println("Config: cache_interval_sec (Metrics) missing. Using default 10s.")
+	}
+
+	log.Printf("Intervals -> Map Refresh: %ds, Cache Update: %ds",
+		config.Server.MapRefreshIntervalSec, config.Server.CacheUpdateIntervalSec)
 	// mapping.yaml読み込み
 	mappingData, err := ioutil.ReadFile("mapping.yaml")
 	if err != nil {
@@ -377,7 +556,15 @@ func main() {
 		log.Fatalf("Failed to parse mapping.yaml: %v", err)
 	}
 
+	c := cache.New(nil)
+	c.Add(targetName)
+	subscribeSrv, err := subscribe.NewServer(c)
+	if err != nil {
+		log.Fatalf("Failed to create subscribe server: %v", err)
+	}
+
 	go backgroundRefresher()
+	go startSnmpPoller(c)
 
 	addr := fmt.Sprintf(":%d", config.Server.Port)
 	lis, err := net.Listen("tcp", addr)
@@ -386,7 +573,11 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterGNMIServer(s, &Server{})
+	srv := &Server{
+		cache:           c,
+		subscribeServer: subscribeSrv,
+	}
+	pb.RegisterGNMIServer(s, srv)
 	reflection.Register(s)
 
 	log.Printf("gNMI Server listening on %s", addr)
