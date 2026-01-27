@@ -1,0 +1,52 @@
+{"timestamp": "2026-01-26T04:28:06.816884Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:28:22.077839Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:28:28.790185Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:28:48.071757Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:28:58.543584Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:28:58.546656Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:28:58.548730Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:29:17.500027Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:29:27.991945Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:29:27.996057Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:29:27.996097Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:29:46.949903Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:29:57.413493Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:29:57.418611Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:29:57.418662Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:30:16.370172Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:30:26.837594Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:30:26.841680Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:30:26.841726Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:30:45.794919Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:30:56.266189Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:30:56.270283Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:30:56.272363Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:31:15.244886Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:31:25.708383Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:31:25.711493Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:31:25.714513Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:31:44.663790Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:31:55.133588Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:31:55.137708Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:31:55.137753Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:32:14.102702Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:32:24.576881Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:32:24.579959Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:32:24.579997Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:32:43.549311Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:32:54.041857Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:32:54.045903Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:32:54.045997Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:33:13.006013Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:33:23.473129Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:33:23.476250Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:33:23.479252Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:33:42.457765Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:33:52.930459Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:33:52.934624Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:33:52.934677Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:34:11.901380Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}
+{"timestamp": "2026-01-26T04:34:22.396494Z", "device_ip": "172.31.254.5", "message": "gNMI Configuration FAILED"}
+{"timestamp": "2026-01-26T04:34:22.398570Z", "device_ip": "172.31.254.3", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:34:22.399591Z", "device_ip": "172.31.254.2", "message": "gNMI Configuration SUCCESSED"}
+{"timestamp": "2026-01-26T04:34:25.003700Z", "device_ip": "172.31.254.5", "message": "Proxy is DEPLOYED and RUNNING"}

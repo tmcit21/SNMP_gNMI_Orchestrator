@@ -209,8 +209,8 @@ if __name__ == "__main__":
         "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
         "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
         ]
-    d = Dist(ip_address="172.31.254.5", ssh_username="vyos", ssh_password="vyos", nos="vyos", snmp_community="public")
-    print(d.remote_send(local_paths))
+    d = Dist(ip_address="172.31.254.3", ssh_username="admin", ssh_password="NokiaSrl1!", nos="linux", snmp_community="public")
+    print(d.redeploy(local_paths))
     #print(d.detect_capability())
     #print(d.redeploy(local_paths=[
     #    "/home/user/SNMP_gNMI_Orchestrator/proxy/gnmi-proxy-amd64",
@@ -223,3 +223,4 @@ if __name__ == "__main__":
     #    "/home/user/SNMP_gNMI_Orchestrator/proxy/mapping.yaml",
     #    ]
     #))
+
