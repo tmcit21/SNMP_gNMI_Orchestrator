@@ -1,7 +1,7 @@
 # server_config.yaml
 
 # gNMIサーバーがリッスンするポート
-port: 57401
+port: 57400
 
 # SNMPターゲット設定 (オンボックスなら localhost)
 snmp_target: "127.0.0.1"
